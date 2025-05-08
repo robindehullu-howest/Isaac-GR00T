@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install wget -y && apt-get install -y python3-pip\
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Clone the GR00T repo from the NVIDIA GitHub Page
-RUN git clone https://github.com/nvidia/Isaac-GR00T.git /GR00T
+RUN git clone https://github.com/robindehullu-howest/Isaac-GR00T.git /GR00T
 
 # Entering the GR00T directory
 WORKDIR /GR00T
