@@ -125,7 +125,15 @@ class DualBrainTrainer(transformers.Trainer):
             state_dict = self.model.state_dict()
 
         if self.args.should_save:
-            return self.model.save_pretrained(output_dir, state_dict=state_dict)
+            r = self.model.save_pretrained(output_dir, state_dict=state_dict)
+            try:
+                from gr00t.data.gcs_utils import push_models_to_gcs
+                base_dir, model_id = output_dir.rsplit('/', 2)[0], output_dir.rsplit('/', 2)[1]
+                push_models_to_gcs(bucket_name="robot-445714_lerobot_models", base_dir=base_dir, model_ids=[model_id])
+            except Exception as e:
+                print(f"Error pushing model to GCS: {e}")
+                pass
+            return r
 
     def train(
         self,
