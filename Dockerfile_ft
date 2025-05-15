@@ -1,0 +1,50 @@
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONPATH=/workspace:${PYTHONPATH}
+ENV GOOGLE_APPLICATION_CREDENTIALS=/workspace/.keys/service-account-key.json
+
+RUN apt update && \
+    apt install -y --no-install-recommends \
+        tzdata netcat dnsutils libgl1-mesa-glx git libvulkan-dev \
+        zip unzip wget curl git-lfs build-essential cmake \
+        vim less sudo htop ca-certificates man tmux ffmpeg \
+        libglib2.0-0 libsm6 libxext6 libxrender-dev && \
+    ln -fs /usr/share/zoneinfo/Europe/Brussels /etc/localtime && \
+    apt clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir --upgrade pip setuptools
+
+WORKDIR /workspace
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir .
+
+RUN pip uninstall -y transformer-engine && \
+    pip install --no-cache-dir flash_attn==2.7.1.post4 -U --force-reinstall && \
+    pip uninstall -y opencv-python opencv-python-headless || true && \
+    rm -rf /usr/local/lib/python3.10/dist-packages/cv2 || true && \
+    pip install --no-cache-dir opencv-python==4.8.0.74 && \
+    pip install --no-cache-dir --force-reinstall \
+        torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 numpy==1.26.4 && \
+    pip install --no-cache-dir accelerate>=0.26.0
+
+COPY gr00t /workspace/gr00t
+COPY getting_started /workspace/getting_started
+COPY scripts /workspace/scripts
+COPY demo_data /workspace/demo_data
+
+RUN pip install --no-cache-dir . --no-deps
+
+COPY entrypoint_ft.sh /workspace/entrypoint.sh
+RUN chmod +x /workspace/entrypoint.sh
+
+ENTRYPOINT [ "/workspace/entrypoint.sh" ]
+CMD ["sh", "-c", "python scripts/gr00t_finetune.py \
+    --dataset-path data/so100/combined_dataset/ \
+    --output-dir output/${MODEL_ID} \
+    --data-config ${DATA_CONFIG} \
+    --video-backend decord \
+    --batch-size ${BATCH_SIZE} \
+    --max-steps ${MAX_STEPS} \
+    --save_steps ${SAVE_STEPS} \
+    --dataloader_num_workers ${NUM_DATALOADERS}"]
