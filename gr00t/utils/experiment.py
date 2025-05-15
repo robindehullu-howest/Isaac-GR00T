@@ -25,13 +25,21 @@ def safe_save_model_for_hf_trainer(trainer: Trainer, output_dir: str):
     if trainer.deepspeed:
         torch.cuda.synchronize()
         trainer.save_model(output_dir, _internal_call=True)
-        return
-
-    state_dict = trainer.model.state_dict()
-    if trainer.args.should_save:
-        cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()}
-        del state_dict
-        trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
+    else:
+        state_dict = trainer.model.state_dict()
+        if trainer.args.should_save:
+            cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()}
+            del state_dict
+            trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
+    
+    try:
+        from gr00t.data.gcs_utils import push_models_to_gcs
+        base_dir = Path(output_dir).parents[1].resolve()
+        model_id = str(Path(output_dir).relative_to(base_dir))
+        push_models_to_gcs(bucket_name="robot-445714_lerobot_models", base_dir=base_dir, model_ids=[model_id])
+    except Exception as e:
+        print(f"Error pushing model to GCS: {e}")
+        pass
 
 
 class CheckpointFormatCallback(TrainerCallback):
@@ -53,10 +61,20 @@ class CheckpointFormatCallback(TrainerCallback):
     def on_save(self, args, state, control, **kwargs):
         """Called after the trainer saves a checkpoint."""
         if state.is_world_process_zero:
-            checkpoint_dir = Path(args.output_dir) / f"checkpoint-{state.global_step}"
+            output_dir = Path(args.output_dir)
+            checkpoint_dir = Path(output_dir / f"checkpoint-{state.global_step}").resolve()
 
             # Copy experiment config directory if provided
             if self.exp_cfg_dir is not None:
                 exp_cfg_dst = checkpoint_dir / self.exp_cfg_dir.name
                 if self.exp_cfg_dir.exists():
                     shutil.copytree(self.exp_cfg_dir, exp_cfg_dst, dirs_exist_ok=True)
+
+            try:
+                from gr00t.data.gcs_utils import push_models_to_gcs
+                base_dir = output_dir.parents[2].resolve()
+                model_id = str(checkpoint_dir.relative_to(base_dir))
+                push_models_to_gcs(bucket_name="robot-445714_lerobot_models", base_dir=base_dir, model_ids=[model_id])
+            except Exception as e:
+                print(f"Error pushing model to GCS: {e}")
+                pass
