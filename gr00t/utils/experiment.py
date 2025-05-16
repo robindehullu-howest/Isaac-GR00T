@@ -72,7 +72,7 @@ class CheckpointFormatCallback(TrainerCallback):
 
             try:
                 from gr00t.data.gcs_utils import push_models_to_gcs
-                base_dir = output_dir.parents[2].resolve()
+                base_dir = output_dir.parents[1].resolve()
                 model_id = str(checkpoint_dir.relative_to(base_dir))
                 push_models_to_gcs(bucket_name="robot-445714_lerobot_models", base_dir=base_dir, model_ids=[model_id])
             except Exception as e:
