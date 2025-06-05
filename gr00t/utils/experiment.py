@@ -33,10 +33,12 @@ def safe_save_model_for_hf_trainer(trainer: Trainer, output_dir: str):
             trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
     
     try:
+        from os import environ
         from gr00t.data.gcs_utils import push_models_to_gcs
+        bucket_name = environ.get("MODELS_BUCKET_NAME", "robot-445714_lerobot_models")
         base_dir = Path(output_dir).parents[1].resolve()
         model_id = str(Path(output_dir).relative_to(base_dir))
-        push_models_to_gcs(bucket_name="robot-445714_lerobot_models", base_dir=base_dir, model_ids=[model_id])
+        push_models_to_gcs(bucket_name=bucket_name, base_dir=base_dir, model_ids=[model_id])
     except Exception as e:
         print(f"Error pushing model to GCS: {e}")
         pass
@@ -71,10 +73,12 @@ class CheckpointFormatCallback(TrainerCallback):
                     shutil.copytree(self.exp_cfg_dir, exp_cfg_dst, dirs_exist_ok=True)
 
             try:
+                from os import environ
                 from gr00t.data.gcs_utils import push_models_to_gcs
+                bucket_name = environ.get("MODELS_BUCKET_NAME", "robot-445714_lerobot_models")
                 base_dir = output_dir.parents[1].resolve()
                 model_id = str(checkpoint_dir.relative_to(base_dir))
-                push_models_to_gcs(bucket_name="robot-445714_lerobot_models", base_dir=base_dir, model_ids=[model_id])
+                push_models_to_gcs(bucket_name=bucket_name, base_dir=base_dir, model_ids=[model_id])
             except Exception as e:
                 print(f"Error pushing model to GCS: {e}")
                 pass
